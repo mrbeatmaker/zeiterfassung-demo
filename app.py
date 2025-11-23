@@ -11,30 +11,37 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- 2. MODERNES DESIGN & WHITE LABELING ---
+# --- 2. MODERNES DESIGN & STRONG WHITE LABELING ---
 def load_custom_css():
     st.markdown("""
         <style>
-        /* --- STRONG WHITE LABELING (Versteckt Streamlit UI) --- */
+        /* --- STRONG WHITE LABELING (Aggressives Verstecken) --- */
         
-        /* 1. Versteckt den oberen Header-Balken komplett */
-        [data-testid="stHeader"] {
-            display: none;
+        /* 1. Header oben komplett entfernen */
+        header[data-testid="stHeader"] {
+            display: none !important;
         }
         
-        /* 2. Versteckt die bunten Striche ganz oben */
-        [data-testid="stDecoration"] {
-            display: none;
-        }
-        
-        /* 3. Versteckt den Footer */
+        /* 2. Footer (Unten) komplett entfernen */
         footer {
-            visibility: hidden;
+            display: none !important;
+            visibility: hidden !important;
         }
         
-        /* 4. Versteckt das Hamburger-Menü (falls noch Reste da sind) */
+        /* 3. Bunte Linie oben entfernen */
+        [data-testid="stDecoration"] {
+            display: none !important;
+        }
+        
+        /* 4. Hamburger Menü & Watermarks */
         #MainMenu {
-            visibility: hidden;
+            display: none !important;
+        }
+        
+        /* 5. Viewer Badge (Unten rechts im Cloud Hosting) */
+        /* Hinweis: Dies funktioniert in den meisten Browsern, aber Streamlit kämpft manchmal dagegen an */
+        .viewerBadge_container__1QSob {
+            display: none !important;
         }
 
         /* --- APP DESIGN (Dunkel & Modern) --- */
