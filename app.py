@@ -40,9 +40,11 @@ def load_custom_css():
         </style>
         """, unsafe_allow_html=True)
 
-# --- 3. DATENBANK INIT ---
+# --- 3. DATENBANK INIT (NEUER NAME: v2.db) ---
+DB_NAME = 'zeiterfassung_v2.db' # <--- HIER IST DER FIX!
+
 def init_db():
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     
     # Tabelle Buchungen
@@ -98,7 +100,7 @@ def init_db():
 # --- FUNKTIONEN (User & DB) ---
 
 def get_user_details(fullname):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE full_name=?", (fullname,))
     u = c.fetchone() # Returns tuple
@@ -106,13 +108,13 @@ def get_user_details(fullname):
     return u # (username, pass, role, fullname, dept, job, vac_total)
 
 def get_all_users():
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql_query("SELECT full_name, department, job_title FROM users WHERE role!='admin'", conn)
     conn.close()
     return df
 
 def login_user(username, password):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute('SELECT * FROM users WHERE username=? AND password=?', (username.lower(), password))
     user = c.fetchone()
@@ -120,7 +122,7 @@ def login_user(username, password):
     return user
 
 def buchung_speichern(mitarbeiter, projekt, aktion):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     zeit = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     c.execute('INSERT INTO buchungen (mitarbeiter, projekt, aktion, zeitstempel) VALUES (?, ?, ?, ?)', 
@@ -130,7 +132,7 @@ def buchung_speichern(mitarbeiter, projekt, aktion):
     st.toast(f"✅ {aktion} gespeichert!", icon="💾")
 
 def lade_daten(table, user_role, username):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     if user_role == 'admin':
         df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
     else:
@@ -184,7 +186,7 @@ def berechne_kpis(df_buchungen, fullname):
 # --- LOGIK: URLAUB & ANTRÄGE ---
 
 def urlaub_beantragen(mitarbeiter, start, ende, typ, kommentar):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("INSERT INTO abwesenheiten (mitarbeiter, start_datum, end_datum, typ, kommentar, status) VALUES (?, ?, ?, ?, ?, 'Ausstehend')", 
               (mitarbeiter, start, ende, typ, kommentar))
@@ -193,7 +195,7 @@ def urlaub_beantragen(mitarbeiter, start, ende, typ, kommentar):
     st.toast("Antrag gesendet!", icon="📨")
 
 def urlaub_entscheiden(id_val, entscheidung, notiz):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     status = "Genehmigt" if entscheidung == "ok" else "Abgelehnt"
     c.execute("UPDATE abwesenheiten SET status=?, admin_note=? WHERE id=?", (status, notiz, id_val))
@@ -202,7 +204,7 @@ def urlaub_entscheiden(id_val, entscheidung, notiz):
     st.toast(f"Status gesetzt auf: {status}")
 
 def get_vacation_stats(fullname, total_days):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     # Zähle nur GENEHMIGTE Urlaubstage
     df = pd.read_sql_query("SELECT start_datum, end_datum FROM abwesenheiten WHERE mitarbeiter=? AND typ='🌴 Urlaub' AND status='Genehmigt'", conn, params=(fullname,))
     conn.close()
@@ -218,7 +220,7 @@ def get_vacation_stats(fullname, total_days):
     return taken, remaining
 
 def count_sick_days(fullname):
-    conn = sqlite3.connect('zeiterfassung.db')
+    conn = sqlite3.connect(DB_NAME)
     df = pd.read_sql_query("SELECT start_datum, end_datum FROM abwesenheiten WHERE mitarbeiter=? AND typ='🤒 Krank'", conn, params=(fullname,))
     conn.close()
     days = 0
@@ -304,7 +306,7 @@ def admin_view():
     # --- TAB 2: GENEHMIGUNGEN ---
     with tab_requests:
         st.markdown("### Offene Anträge")
-        conn = sqlite3.connect('zeiterfassung.db')
+        conn = sqlite3.connect(DB_NAME)
         df_req = pd.read_sql_query("SELECT * FROM abwesenheiten WHERE status='Ausstehend'", conn)
         conn.close()
         
@@ -384,7 +386,7 @@ def employee_view(user_data):
                     
         with c_stat:
             st.markdown("#### Status meiner Anträge")
-            conn = sqlite3.connect('zeiterfassung.db')
+            conn = sqlite3.connect(DB_NAME)
             df_my = pd.read_sql_query("SELECT * FROM abwesenheiten WHERE mitarbeiter=? ORDER BY id DESC", conn, params=(fullname,))
             conn.close()
             
