@@ -4,28 +4,47 @@ import sqlite3
 import time
 from datetime import datetime, date, timedelta, time as dt_time
 
-# --- 1. KONFIGURATION ---
+# --- 1. KONFIGURATION (Muss immer als erstes stehen) ---
 st.set_page_config(
     page_title="ERDAL SAKARYA System", 
     page_icon="🔒", 
     layout="wide"
 )
 
-# --- 2. MODERNES DESIGN (CSS HACKS) ---
+# --- 2. MODERNES DESIGN & WHITE LABELING ---
 def load_custom_css():
     st.markdown("""
         <style>
-        /* Versteckt Streamlit Elemente */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        header {visibility: hidden;}
+        /* --- STRONG WHITE LABELING (Versteckt Streamlit UI) --- */
         
-        /* HINTERGRUND & TEXTUR */
+        /* 1. Versteckt den oberen Header-Balken komplett */
+        [data-testid="stHeader"] {
+            display: none;
+        }
+        
+        /* 2. Versteckt die bunten Striche ganz oben */
+        [data-testid="stDecoration"] {
+            display: none;
+        }
+        
+        /* 3. Versteckt den Footer */
+        footer {
+            visibility: hidden;
+        }
+        
+        /* 4. Versteckt das Hamburger-Menü (falls noch Reste da sind) */
+        #MainMenu {
+            visibility: hidden;
+        }
+
+        /* --- APP DESIGN (Dunkel & Modern) --- */
+        
+        /* Hintergrund */
         .stApp {
             background-color: #0E1117;
         }
 
-        /* BUTTONS STYLEN (Wie eine echte App) */
+        /* Buttons: Farbverlauf & Rundungen */
         .stButton > button {
             background: linear-gradient(90deg, #FF4B4B 0%, #F63366 100%);
             color: white;
@@ -39,13 +58,14 @@ def load_custom_css():
             width: 100%;
         }
         
+        /* Button Hover Effekt */
         .stButton > button:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(246, 51, 102, 0.4);
             background: linear-gradient(90deg, #F63366 0%, #FF4B4B 100%);
         }
 
-        /* INPUT FELDER STYLEN */
+        /* Input Felder */
         .stTextInput > div > div > input, .stSelectbox > div > div > div {
             border-radius: 10px;
             background-color: #262730;
@@ -53,14 +73,14 @@ def load_custom_css():
             border: 1px solid #444;
         }
 
-        /* TABELLEN STYLEN */
+        /* Tabellen */
         .stDataFrame {
             border-radius: 10px;
             overflow: hidden;
             border: 1px solid #333;
         }
 
-        /* METRICS (Die großen Zahlen) */
+        /* Große Zahlen (Metrics) */
         div[data-testid="stMetric"] {
             background-color: #1E1E1E;
             padding: 15px;
@@ -69,7 +89,7 @@ def load_custom_css():
             box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
         }
         
-        /* TABS STYLEN */
+        /* Tabs */
         .stTabs [data-baseweb="tab-list"] {
             gap: 10px;
         }
@@ -90,11 +110,13 @@ def load_custom_css():
 def init_db():
     conn = sqlite3.connect('zeiterfassung.db')
     c = conn.cursor()
+    
+    # Tabellen erstellen
     c.execute('''CREATE TABLE IF NOT EXISTS buchungen (id INTEGER PRIMARY KEY AUTOINCREMENT, mitarbeiter TEXT, projekt TEXT, aktion TEXT, zeitstempel DATETIME)''')
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, role TEXT, full_name TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS abwesenheiten (id INTEGER PRIMARY KEY AUTOINCREMENT, mitarbeiter TEXT, start_datum DATE, end_datum DATE, typ TEXT, kommentar TEXT)''')
     
-    # Standard-User Check
+    # Standard-User anlegen
     c.execute('SELECT count(*) FROM users')
     if c.fetchone()[0] == 0:
         users = [
@@ -104,13 +126,14 @@ def init_db():
         ]
         c.executemany('INSERT INTO users VALUES (?,?,?,?)', users)
 
-    # Demo-Daten Check
+    # Demo-Daten erzeugen (für den Show-Effekt)
     c.execute('SELECT count(*) FROM buchungen')
     if c.fetchone()[0] == 0:
         heute = date.today()
         gestern = heute - timedelta(days=1)
         vorgestern = heute - timedelta(days=2)
         vor_vorgestern = heute - timedelta(days=3)
+        
         demo_buchungen = [
             ("Max Mustermann", "Web-Entwicklung", "Kommen", f"{vor_vorgestern} 08:00:00"),
             ("Max Mustermann", "Web-Entwicklung", "Pause", f"{vor_vorgestern} 12:00:00"),
@@ -122,12 +145,14 @@ def init_db():
             ("Max Mustermann", "Meeting", "Gehen", f"{gestern} 15:00:00"),
             ("Max Mustermann", "Web-Entwicklung", "Kommen", f"{heute} 07:45:00"),
         ]
+        
         final_data = []
         for item in demo_buchungen:
             ts = datetime.strptime(item[3], "%Y-%m-%d %H:%M:%S")
             final_data.append((item[0], item[1], item[2], ts))
         c.executemany('INSERT INTO buchungen (mitarbeiter, projekt, aktion, zeitstempel) VALUES (?, ?, ?, ?)', final_data)
 
+    # Demo-Urlaub erzeugen
     c.execute('SELECT count(*) FROM abwesenheiten')
     if c.fetchone()[0] == 0:
         next_week = date.today() + timedelta(days=7)
@@ -137,9 +162,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-# --- FUNKTIONEN (User, DB, Logik) ---
-# ... (Diese Funktionen bleiben 100% gleich wie vorher, ich kürze sie hier nicht, 
-# damit du copy-paste machen kannst, aber der Code ist identisch zu V14, außer dem CSS Aufruf oben)
+# --- HELFER FUNKTIONEN ---
 
 def create_user(username, password, role, fullname):
     conn = sqlite3.connect('zeiterfassung.db')
@@ -290,6 +313,7 @@ def admin_view():
             st.download_button("📥 Excel-Export", csv, "export.csv")
         else:
             st.warning("Keine Daten.")
+
     with tab2:
         df_ab = lade_abwesenheiten('admin', 'alle')
         col_a, col_b = st.columns([3, 1])
@@ -304,6 +328,7 @@ def admin_view():
                 if st.button("Eintrag entfernen"):
                     abwesenheit_loeschen(del_id)
                     st.rerun()
+
     with tab3:
         c_left, c_right = st.columns(2)
         with c_left:
@@ -322,6 +347,7 @@ def admin_view():
                         st.error("Name vergeben.")
         with c_right:
             st.dataframe(get_all_users(), use_container_width=True, hide_index=True)
+
     with tab4:
         c_del, c_add = st.columns(2)
         with c_del:
@@ -417,7 +443,7 @@ def dashboard():
 
 # --- MAIN ---
 def main():
-    load_custom_css() # DAS IST NEU! Hier laden wir das Design
+    load_custom_css()
     init_db()
     if 'logged_in' not in st.session_state:
         st.session_state['logged_in'] = False
