@@ -3,33 +3,50 @@ import pandas as pd
 import sqlite3
 import time
 from datetime import datetime, date, timedelta
-import os # Neu: Um zu prüfen, ob das Bild da ist
+import os
 
-# --- 1. KONFIGURATION & LOGO SETUP ---
-# Wir definieren das Logo hier, damit wir es leicht ändern können
+# --- 1. KONFIGURATION & LOGO ---
 LOGO_FILE = "ES_favicon-transparent.png"
 
 st.set_page_config(
     page_title="ERDAL SAKARYA HR System", 
-    page_icon=LOGO_FILE, # Hier wird das Favicon im Browser-Tab gesetzt
+    page_icon=LOGO_FILE, 
     layout="wide"
 )
 
-# --- 2. DESIGN & CSS ---
+# --- 2. DESIGN & CSS (KORRIGIERT!) ---
 def load_custom_css():
     st.markdown("""
         <style>
-        /* Versteckt Standard-Elemente */
-        [data-testid="stHeader"], footer, [data-testid="stDecoration"] {display: none !important;}
+        /* --- SIDEBAR FIX --- */
+        /* Wir verstecken NICHT mehr den ganzen Header, sondern nur die Teile, die wir nicht wollen. */
+        /* So bleibt der Pfeil für die Sidebar erhalten! */
+        
+        /* Versteckt die bunte Linie oben */
+        [data-testid="stDecoration"] {display: none !important;}
+        
+        /* Versteckt das 'Deploy' und die 3 Punkte rechts oben */
+        .stDeployButton {display: none !important;}
+        [data-testid="stToolbar"] {display: none !important;}
+        
+        /* Macht den Header transparent, damit er sich ins Design einfügt */
+        [data-testid="stHeader"] {
+            background-color: rgba(0,0,0,0);
+        }
+        
+        /* Versteckt den Footer */
+        footer {visibility: hidden;}
+
+        /* --- ALLGEMEINES DESIGN --- */
         .stApp {background-color: #0E1117;}
         
-        /* Sidebar Design anpassen */
+        /* Sidebar Hintergrund */
         [data-testid="stSidebar"] {
             background-color: #1E1E1E;
             border-right: 1px solid #333;
         }
 
-        /* Cards für KPIs */
+        /* KPI Cards */
         div[data-testid="stMetric"] {
             background-color: #1E1E1E;
             padding: 15px;
@@ -56,7 +73,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, role TEXT, full_name TEXT, department TEXT, job_title TEXT, vacation_days_total INTEGER)''')
     c.execute('''CREATE TABLE IF NOT EXISTS abwesenheiten (id INTEGER PRIMARY KEY AUTOINCREMENT, mitarbeiter TEXT, start_datum DATE, end_datum DATE, typ TEXT, kommentar TEXT, status TEXT DEFAULT 'Ausstehend', admin_note TEXT)''')
     
-    # Check User / Demo Daten
+    # Check ob User existieren
     c.execute('SELECT count(*) FROM users')
     if c.fetchone()[0] == 0:
         users = [
@@ -66,6 +83,7 @@ def init_db():
         ]
         c.executemany('INSERT INTO users VALUES (?,?,?,?,?,?,?)', users)
         
+        # Demo Buchungen
         heute = date.today()
         buchungen = []
         for i in range(1, 6):
@@ -210,30 +228,40 @@ def count_sick_days(fullname):
 # --- UI SEITEN ---
 
 def render_sidebar():
-    """Zeigt das Logo und die Navigation in der Sidebar an"""
     with st.sidebar:
-        # LOGO ANZEIGE
         try:
-            # Wir nutzen use_container_width für saubere Skalierung
             st.image(LOGO_FILE, use_container_width=True)
         except:
-            st.warning("Logo-Datei nicht gefunden. Bitte 'ES_favicon-transparent.png' hochladen.")
-        
+            st.warning("Kein Logo.")
         st.markdown("---")
         st.markdown("**ERDAL SAKARYA SYSTEMS**")
-        st.caption("HR & Time Management v20.0")
+        st.caption("HR v21.0")
+        # Kein Logout Button hier, der ist jetzt oben rechts
+
+def render_top_bar(user_data=None):
+    """Erstellt die Kopfzeile mit Logo, Titel und Logout"""
+    col_logo, col_title, col_logout = st.columns([1, 6, 2])
+    
+    with col_logo:
+        try:
+            st.image(LOGO_FILE, width=60)
+        except:
+            st.write("🖼️")
+            
+    with col_title:
+        st.markdown("### ERDAL SAKARYA SYSTEMS")
         
-        # Logout Button jetzt in der Sidebar für besseres Layout
-        if st.button("🔒 Ausloggen", use_container_width=True):
-            st.session_state['logged_in'] = False
-            st.rerun()
+    with col_logout:
+        if user_data:
+            if st.button("🔒 Ausloggen", key="top_logout"):
+                st.session_state['logged_in'] = False
+                st.rerun()
 
 def login_screen():
-    # Beim Login zeigen wir das Logo zentriert über dem Formular
     c1, c2, c3 = st.columns([1,2,1])
     with c2:
         try:
-            st.image(LOGO_FILE, width=150) # Kleineres Logo für Login
+            st.image(LOGO_FILE, width=150) 
         except:
             pass
         st.markdown("## 🔒 System Login")
@@ -249,7 +277,7 @@ def login_screen():
                     st.error("Falsch.")
 
 def admin_view():
-    st.title("👨‍💼 HR Admin Cockpit")
+    st.markdown("#### 👨‍💼 HR Admin Cockpit")
     
     tab_overview, tab_requests = st.tabs(["📊 Firmen-Dashboard & Mitarbeiter", "📨 Anträge genehmigen"])
     
@@ -269,7 +297,7 @@ def admin_view():
                 
                 df_buchungen, df_absences, df_users = get_company_stats()
                 
-                # KPIs
+                # Global KPIs
                 if not df_buchungen.empty:
                     df_buchungen['zeitstempel'] = pd.to_datetime(df_buchungen['zeitstempel'])
                     stats_all, saldo_all = berechne_kpis(df_buchungen, 'all')
@@ -291,7 +319,6 @@ def admin_view():
                         d1 = datetime.strptime(row['start_datum'], "%Y-%m-%d")
                         d2 = datetime.strptime(row['end_datum'], "%Y-%m-%d")
                         total_vac_taken += (d2 - d1).days + 1
-                
                 vac_percentage = (total_vac_taken / total_vac_days_available * 100) if total_vac_days_available > 0 else 0
                 
                 k1, k2, k3, k4 = st.columns(4)
@@ -312,7 +339,6 @@ def admin_view():
                     if not df_buchungen.empty:
                         daily_hours = stats_all.groupby('Datum')['Ist'].sum()
                         st.line_chart(daily_hours, color="#FF4B4B")
-
             else:
                 u_details = get_user_details(selected_option)
                 with st.container():
@@ -421,10 +447,15 @@ def main():
     if not st.session_state['logged_in']:
         login_screen()
     else:
-        # HIER WIRD DAS LOGO IN DER SIDEBAR GELADEN
+        # Side Bar anzeigen (Logo + Info)
         render_sidebar()
         
+        # NEU: Kopfzeile mit Logo, Titel und Logout
         user_data = st.session_state['user']
+        render_top_bar(user_data)
+        
+        # Inhalt
+        st.divider()
         if user_data[2] == 'admin':
             admin_view()
         else:
